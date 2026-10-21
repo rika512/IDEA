@@ -23,7 +23,7 @@ DATALOADER:
 
 DATASETS:
   NAMES: ('MSVR310')                    # Dataset name(s) for training
-  ROOT_DIR: '..'                       # Root directory for datasets
+  ROOT_DIR: './DATA'                   # Root directory for datasets
 
 SOLVER:
   BASE_LR: 0.00035                      # Base learning rate
