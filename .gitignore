@@ -1,4 +1,7 @@
-.DS_Store/
 DATA/
 PTH/
 downloads/
+outputs/
+
+__pycache__/
+*.pyc
