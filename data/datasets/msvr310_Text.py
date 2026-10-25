@@ -8,6 +8,7 @@ import os
 import os.path as osp
 from .bases import BaseImageDataset
 import json
+from .text_policy import apply_text_policy, validate_text_policy
 
 
 class MSVR310_Text(BaseImageDataset):
@@ -20,6 +21,13 @@ class MSVR310_Text(BaseImageDataset):
         self.dataset_dir = osp.join(root, self.dataset_dir)
         self.prompt = cfg.MODEL.TEXT_PROMPT * 'X ' if cfg.MODEL.TEXT_PROMPT > 0 else ''
         self.prefix = cfg.MODEL.PREFIX
+        self.text_cfg = cfg.TEXT
+        validate_text_policy(self.text_cfg.TRAIN_MODE, self.text_cfg.GENERIC_LENGTH)
+        validate_text_policy(self.text_cfg.TEST_MODE, self.text_cfg.GENERIC_LENGTH)
+        self.text_tokenizer = None
+        if 'generic' in (self.text_cfg.TRAIN_MODE, self.text_cfg.TEST_MODE):
+            from utils.simple_tokenizer import SimpleTokenizer
+            self.text_tokenizer = SimpleTokenizer()
         if self.prefix:
             print('~~~~~~~【We use modality prefix Here!】~~~~~~~')
         else:
@@ -33,9 +41,12 @@ class MSVR310_Text(BaseImageDataset):
 
         self._check_before_run()
 
-        train = self._process_dir(self.train_dir, self.train_text_dir, relabel=True)
-        query = self._process_dir(self.query_dir, self.query_text_dir, relabel=False)
-        gallery = self._process_dir(self.gallery_dir, self.gallery_text_dir, relabel=False)
+        train = self._process_dir(self.train_dir, self.train_text_dir, relabel=True,
+                                  text_mode=self.text_cfg.TRAIN_MODE)
+        query = self._process_dir(self.query_dir, self.query_text_dir, relabel=False,
+                                  text_mode=self.text_cfg.TEST_MODE)
+        gallery = self._process_dir(self.gallery_dir, self.gallery_text_dir, relabel=False,
+                                    text_mode=self.text_cfg.TEST_MODE)
         # pdb.set_trace()
         if verbose:
             print("=> RGB_IR loaded")
@@ -71,7 +82,7 @@ class MSVR310_Text(BaseImageDataset):
                 return item.get('description', "")  # 'description' 存储文本标注
         return ""
 
-    def _process_dir(self, dir_path, text_dir_path, relabel=False):
+    def _process_dir(self, dir_path, text_dir_path, relabel=False, text_mode='real'):
         prefix = 'train' if 'train' in dir_path else 'test'
         # 加载RGB、NI、TI的文本标注json文件
         json_file_RGB = osp.join(text_dir_path, prefix + '_RGB.json')
@@ -105,23 +116,24 @@ class MSVR310_Text(BaseImageDataset):
                 if relabel:
                     vid = vid2label[vid]
                 jpg_name = img
+                prefix_RGB = prefix_NI = prefix_TI = ''
                 if self.prefix:
-                    # text_annotation_RGB = 'An image of a ' + self.prompt + 'vehicle in the visible spectrum: ' + self.find_annotation(
-                    #     text_annotations_RGB, jpg_name)
-                    # text_annotation_NI = 'An image of a ' + self.prompt + 'vehicle in the near infrared spectrum: ' + self.find_annotation(
-                    #     text_annotations_NI, jpg_name)
-                    # text_annotation_TI = 'An image of a ' + self.prompt + 'vehicle in the thermal infrared spectrum: ' + self.find_annotation(
-                    #     text_annotations_TI, jpg_name)
-                    text_annotation_RGB = 'An image of a ' + self.prompt + 'vehicle in the visible spectrum, capturing natural colors and fine details: ' + self.find_annotation(
-                        text_annotations_RGB, jpg_name)
-                    text_annotation_NI = 'An image of a ' + self.prompt + 'vehicle in the near infrared spectrum, capturing contrasts and surface reflectance: ' + self.find_annotation(
-                        text_annotations_NI, jpg_name)
-                    text_annotation_TI = 'An image of a ' + self.prompt + 'vehicle in the thermal infrared spectrum, capturing heat emissions as temperature gradients: ' + self.find_annotation(
-                        text_annotations_TI, jpg_name)
-                else:
-                    text_annotation_RGB = self.find_annotation(text_annotations_RGB, jpg_name)
-                    text_annotation_NI = self.find_annotation(text_annotations_NI, jpg_name)
-                    text_annotation_TI = self.find_annotation(text_annotations_TI, jpg_name)
+                    prefix_RGB = 'An image of a ' + self.prompt + 'vehicle in the visible spectrum, capturing natural colors and fine details: '
+                    prefix_NI = 'An image of a ' + self.prompt + 'vehicle in the near infrared spectrum, capturing contrasts and surface reflectance: '
+                    prefix_TI = 'An image of a ' + self.prompt + 'vehicle in the thermal infrared spectrum, capturing heat emissions as temperature gradients: '
+                text_annotation_RGB, text_annotation_NI, text_annotation_TI = (
+                    apply_text_policy(
+                        self.find_annotation(annotations, jpg_name), modal_prefix,
+                        text_mode, tokenizer=self.text_tokenizer,
+                        generic_word=self.text_cfg.GENERIC_WORD,
+                        generic_length=self.text_cfg.GENERIC_LENGTH,
+                    )
+                    for annotations, modal_prefix in (
+                        (text_annotations_RGB, prefix_RGB),
+                        (text_annotations_NI, prefix_NI),
+                        (text_annotations_TI, prefix_TI),
+                    )
+                )
 
                 dataset.append(((r_img_path, n_img_path, t_img_path), vid, camid, sceneid, text_annotation_RGB,
                                 text_annotation_NI, text_annotation_TI))

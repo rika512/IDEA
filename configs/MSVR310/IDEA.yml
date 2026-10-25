@@ -25,6 +25,12 @@ DATASETS:
   NAMES: ('MSVR310')                    # Dataset name(s) for training
   ROOT_DIR: './DATA'                   # Root directory for datasets
 
+TEXT:
+  TRAIN_MODE: 'real'                   # Training split: real or generic
+  TEST_MODE: 'real'                    # Query/gallery, including validation during training
+  GENERIC_WORD: 'vehicle'              # Single-token filler; keep modality prefixes
+  GENERIC_LENGTH: 'match_real'          # Preserve effective token count and EOT position
+
 SOLVER:
   BASE_LR: 0.00035                      # Base learning rate
   WARMUP_ITERS: 10                      # Number of warmup iterations

@@ -59,6 +59,13 @@ _C.DATASETS = CN()
 _C.DATASETS.NAMES = ('RGBNT201')  # Names of datasets for training
 _C.DATASETS.ROOT_DIR = './data'  # Root directory for datasets
 
+# MSVR310 instance-text policies; evaluation applies to both query and gallery.
+_C.TEXT = CN()
+_C.TEXT.TRAIN_MODE = 'real'
+_C.TEXT.TEST_MODE = 'real'
+_C.TEXT.GENERIC_WORD = 'vehicle'
+_C.TEXT.GENERIC_LENGTH = 'match_real'
+
 # ===================== DATALOADER CONFIGURATION =====================
 _C.DATALOADER = CN()
 _C.DATALOADER.NUM_WORKERS = 14  # Number of data loading threads
